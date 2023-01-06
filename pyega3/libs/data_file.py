@@ -201,18 +201,26 @@ class DataFile:
         final_file_name = f'{file_name}-from-{str(start_pos)}-len-{str(length)}.slice'
         file_name = final_file_name + '.tmp'
 
-        self.temporary_files.add(file_name)
-
-        existing_size = os.stat(final_file_name).st_size if os.path.exists(final_file_name) else 0
-        if existing_size > length:
-            os.remove(final_file_name)
-            existing_size = 0
+        existing_size = 0
+        for fname in (final_file_name, file_name):
+            if os.path.exists(fname):
+                existing_size = os.stat(fname).st_size
+                if (existing_size > length) or (fname == final_file_name and existing_size < length):
+                    logging.warning(f"Deleting file {fname}, file size does not match expected value")
+                    os.remove(fname)
+                    existing_size = 0
+                else:
+                    break
 
         if pbar:
             pbar.update(existing_size)
 
         if existing_size == length:
+            if fname == file_name:
+                os.rename(file_name, final_file_name)
             return final_file_name
+
+        self.temporary_files.add(file_name)
 
         try:
             range_start = start_pos + existing_size
